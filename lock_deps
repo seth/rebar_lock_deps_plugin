@@ -1,5 +1,25 @@
 #!/usr/bin/env escript
 
+%% @author Seth Falcon
+%% @copyright 2011 Seth Falcon
+%% @doc lock_deps: Generate Locked Dependencies for Rebar
+%%
+%% The lock_deps script generates an alternate rebar.config file that
+%% lists every dependency of a project and locks it at a given git
+%% revision using the `{tag, SHA}' syntax.
+%%
+%% Basic usage is:
+%% ```
+%% ./lock_deps deps [ignore...]
+%% '''
+%%
+%% where `deps' is the directory containing project dependencies
+%% followed by zero or more dependency names which should not be
+%% locked (can be useful to test-only modules).
+%%
+%% See the README.md file for details on how to use the script in your
+%% build and notes on implementation.
+%%
 -author("Seth Falcon <seth@userprimary.net>").
 -export([main/1]).
 
@@ -31,7 +51,7 @@ get_locked_deps(DepVersions, AllDeps, Ignores) ->
     io:format("locked ~b deps~n", [length(NewDeps)]),
     io:format("ignored ~b deps~n", [length(IgnoreDeps)]),
     IgnoreDeps ++ NewDeps.
-    
+
 %% Write a locked down rebar.config file to `NewPath' based on the
 %% rebar.config file found at `OrigPath'.
 write_rebar_lock(OrigPath, NewPath, NewDeps) ->
@@ -56,7 +76,7 @@ sha_for_project(Dir) ->
     Cmd = ["cd ", Dir, "; git rev-parse HEAD"],
     Sha = re:replace(os:cmd(Cmd), "\n$", "", [{return, list}]),
     {list_to_atom(filename:basename(Dir)), Sha}.
-    
+
 deps_dirs(Dir) ->
     [ D || D <- filelib:wildcard(Dir ++ "/*"), filelib:is_dir(D) ].
 
