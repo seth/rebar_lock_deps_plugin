@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# Usage: ./dep_versions DIR
+# 
+# Extract git SHAs for all projects in DIR
+#
+cwd=`pwd`
+deps_dir=$1
+cd $deps_dir
+for d in `ls`; do
+    test -d $d && echo "$(cd $d;git rev-parse HEAD) $d"
+done
+
