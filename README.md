@@ -1,39 +1,27 @@
 # lock_deps: Generate Locked Dependencies for Rebar Projects #
 
-## tl;dr (probably still tl) ##
+## tl;dr ##
 
-The `lock_deps` script generates an alternate rebar.config file that
-lists every dependency of a project and locks it at a given git
-revision using the `{tag, SHA}` syntax.
-
-Use this script to create reproducible builds for a top-level OTP
-release project that pulls in a number of different projects as rebar
-dependencies. To lock a build, run the script from the top level
-directory of your project like this:
+Use this script to create reproducible builds for a rebar
+project. Generate a `rebar.config.lock` file by running the script
+from the top level directory of your project like this:
 
     ./lock_deps deps
 
-This will generate a `rebar.config.lock` file containing locked
-dependencies for all dependencies found in the `deps` directory or
-specified in the project's own rebar.config file. If there are
-dependencies which you do not wish to lock, you can list them after
-the deps directory argument on the command line. For example,
+The generated `rebar.config.lock` file lists every dependency of the
+project and locks it at the git revision found in the `deps` directory
+using the `{tag, SHA}` syntax.
 
-    ./lock_deps deps meck
-
-would lock all dependencies except for `meck` which would retain the
-spec specified in one of the rebar.config files that declared it. Note
-that if a dependency is declared more than once, the script picks a
-spec "at random" to use.
-
-You can now use the resulting rebar.config.lock file to produce a
-build where all dependencies will match your current state. If
-something fails during the get-deps rebar stage, take care to run
-`rebar get-deps skip_deps=true` to try to repair it. Otherwise, rebar
-will pull deps based on specs of your dependencies rather than the
-locked version at the top-level.
+A clean build using the lock file (`rebar -C rebar.config.lock`) will
+pull all dependencies as found at the time of generation. Suggestions
+for integrating with Make are described below.
 
 ## How it works ##
+
+The script must be run from a rebar project directory in which
+`get-deps` has already been run. It generates a `rebar.config.lock`
+file where the dependencies are locked to the versions available
+locally (the current state of the project).
 
 The lock_deps script goes through each directory in your deps dir and
 calls `git rev-parse HEAD` to determine the currently checked out
@@ -44,6 +32,20 @@ creates a new rebar.config.lock file as a clone of the top-level
 rebar.config file, but with the `deps` key replaced with the complete
 list of dependencies set to `{tag, SHA}` where the SHA is based on
 what is currently checked out.
+
+If something fails during the get-deps rebar stage, take care to run
+`rebar get-deps skip_deps=true` to try to repair it. Otherwise, rebar
+will pull deps based on specs of your dependencies rather than the
+locked version at the top-level.
+
+## Ignoring some dependencies ##
+
+If there are dependencies which you do not wish to lock, you can list
+them after the deps directory argument on the command line. For
+example, `./lock_deps deps meck` would lock all dependencies except
+for `meck` which would retain the spec as found in one of the
+rebar.config files that declared it. Note that if a dependency is
+declared more than once, the script picks a spec "at random" to use.
 
 ## How you can integrate it into your build ##
 
@@ -76,5 +78,3 @@ On master, you don't have a USE_REBAR_LOCKED file checked in and will
 use the standard rebar.config file.
 
 This approach should keep merge conflicts to a minimum.
-
-

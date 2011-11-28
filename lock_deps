@@ -5,8 +5,8 @@
 %% @doc lock_deps: Generate Locked Dependencies for Rebar
 %%
 %% The lock_deps script generates an alternate rebar.config file that
-%% lists every dependency of a project and locks it at a given git
-%% revision using the `{tag, SHA}' syntax.
+%% lists every dependency of a project and locks them at the git
+%% revision found in the deps directory using the `{tag, SHA}' syntax.
 %%
 %% Basic usage is:
 %% ```
@@ -15,10 +15,23 @@
 %%
 %% where `deps' is the directory containing project dependencies
 %% followed by zero or more dependency names which should not be
-%% locked (can be useful to test-only modules).
+%% locked (can be useful for test-only modules).
 %%
 %% See the README.md file for details on how to use the script in your
 %% build and notes on implementation.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+
 %%
 -author("Seth Falcon <seth@userprimary.net>").
 -export([main/1]).
