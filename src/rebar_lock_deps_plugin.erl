@@ -1,4 +1,4 @@
-#!/usr/bin/env escript
+%%% vim: set ts=4 sts=4 sw=4 et:
 
 %% @author Seth Falcon
 %% @copyright 2011 Seth Falcon
@@ -33,10 +33,30 @@
 %% limitations under the License.
 
 %%
+-module(rebar_lock_deps_plugin).
 -author("Seth Falcon <seth@userprimary.net>").
--export([main/1]).
+-export([
+    'lock-deps'/2,
+    'list-deps-versions'/2
+]).
 
-main([DepsDir|Ignores]) ->
+'lock-deps'(Config, _AppFile) ->
+    run_on_base_dir(Config, fun lock_deps/1).
+
+'list-deps-versions'(Config, AppFile) ->
+    run_on_base_dir(Config, fun list_deps_versions/1).
+
+run_on_base_dir(Config, Fun) ->
+    CurDir = filename:absname(rebar_utils:get_cwd()),
+    BaseDir = rebar_config:get_xconf(Config, base_dir, []),
+    case CurDir == BaseDir of
+        true -> Fun(Config);
+        false -> ok
+    end.
+
+lock_deps(Config) ->
+    DepsDir = rebar_config:get(Config, deps_dir, "deps"),
+    Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
     Dirs = deps_dirs(DepsDir),
     DepVersions = get_dep_versions(Dirs),
     AllDeps = collect_deps(["."|Dirs]),
@@ -44,6 +64,15 @@ main([DepsDir|Ignores]) ->
     NewConfig = "./rebar.config.lock",
     write_rebar_lock("./rebar.config", NewConfig, NewDeps),
     io:format("wrote locked rebar config to: ~s~n", [NewConfig]),
+    ok.
+
+list_deps_versions(Config) ->
+    DepsDir = rebar_config:get(Config, deps_dir, "deps"),
+    Dirs = deps_dirs(DepsDir),
+    DepVersions = get_dep_versions(Dirs),
+    lists:foreach(fun({Dep, Ver}) ->
+        io:format("~s ~s~n", [Ver, Dep])
+    end, DepVersions),
     ok.
 
 %% Create rebar dependency specs for each dep in `DepVersions' locked
