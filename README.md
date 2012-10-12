@@ -1,8 +1,8 @@
-# repar_lock_deps_plugin: A Rebar Plugin that Generates Locked Dependencies for Rebar Projects #
+# A Rebar Plugin that Generates Locked Dependencies for Rebar Projects #
 
 ## tl;dr ##
 
-Use this script to create reproducible builds for a rebar
+Use this plugin to create reproducible builds for a rebar
 project. Generate a `rebar.config.lock` file by running the command
 from the top level directory of your project like this:
 
@@ -15,6 +15,19 @@ using the `{tag, SHA}` syntax.
 A clean build using the lock file (`rebar -C rebar.config.lock`) will
 pull all dependencies as found at the time of generation. Suggestions
 for integrating with Make are described below.
+
+## Installation ##
+
+Add the following to your top-level rebar.config:
+
+    %% Plugin dependency
+    {deps, [
+    	{rebar_lock_deps_plugin, ".*",
+    	  {git, "https://github.com/lukyanov/rebar_lock_deps_plugin.git", "master"}}
+    ]}.
+
+    %% Plugin usage
+    {rebar_plugins, [rebar_lock_deps_plugin]}.
 
 ## How it works ##
 
