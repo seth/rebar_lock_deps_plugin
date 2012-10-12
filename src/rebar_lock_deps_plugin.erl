@@ -4,18 +4,14 @@
 %% @copyright 2011 Seth Falcon
 %% @doc lock_deps: Generate Locked Dependencies for Rebar
 %%
-%% The lock_deps script generates an alternate rebar.config file that
+%% The lock_deps command generates an alternate rebar.config file that
 %% lists every dependency of a project and locks them at the git
 %% revision found in the deps directory using the `{tag, SHA}' syntax.
 %%
 %% Basic usage is:
 %% ```
-%% ./lock_deps deps [ignore...]
+%% ./rebar lock_deps [ignore=...]
 %% '''
-%%
-%% where `deps' is the directory containing project dependencies
-%% followed by zero or more dependency names which should not be
-%% locked (can be useful for test-only modules).
 %%
 %% See the README.md file for details on how to use the script in your
 %% build and notes on implementation.
