@@ -57,9 +57,10 @@ run_on_base_dir(Config, Fun) ->
 lock_deps(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
-    Dirs = deps_dirs(DepsDir),
-    DepVersions = get_dep_versions(Dirs),
-    AllDeps = collect_deps(["."|Dirs]),
+    DepDirs = deps_dirs(DepsDir),
+    SubDirs = rebar_config:get(Config, sub_dirs, []),
+    DepVersions = get_dep_versions(DepDirs),
+    AllDeps = collect_deps(["."|DepDirs++SubDirs]),
     NewDeps = get_locked_deps(DepVersions, AllDeps, Ignores),
     NewConfig = "./rebar.config.lock",
     write_rebar_lock("./rebar.config", NewConfig, NewDeps),
