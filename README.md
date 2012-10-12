@@ -6,7 +6,7 @@ Use this plugin to create reproducible builds for a rebar
 project. Generate a `rebar.config.lock` file by running the command
 from the top level directory of your project like this:
 
-    ./rebar lock_deps
+    ./rebar lock-deps
 
 The generated `rebar.config.lock` file lists every dependency of the
 project and locks it at the git revision found in the `deps` directory
@@ -36,7 +36,7 @@ The command must be run from a rebar project directory in which
 file where the dependencies are locked to the versions available
 locally (the current state of the project).
 
-The lock_deps command goes through each directory in your deps dir and
+The lock-deps command goes through each directory in your deps dir and
 calls `git rev-parse HEAD` to determine the currently checked out
 version. It also extracts the dependency specs (the `deps` key) from
 the rebar.config files inside each directory in deps (non-recursively)
@@ -55,7 +55,7 @@ locked version at the top-level.
 
 If there are dependencies which you do not wish to lock, you can list
 them using `ignore` option on the command line (use comma to separate values).
-For example, `./rebar lock_deps ignore=meck` would lock all dependencies except
+For example, `./rebar lock-deps ignore=meck` would lock all dependencies except
 for `meck` which would retain the spec as found in one of the
 rebar.config files that declared it. Note that if a dependency is
 declared more than once, the script picks a spec "at random" to use.
@@ -77,7 +77,7 @@ Makefile:
     REBAR = ./rebar -C $(rebar_config)
 
     update_locked_config:
-    	@./rebar lock_deps ignore=meck
+    	@./rebar lock-deps ignore=meck
 
 To tag the release branch, you would create a clean build and verify
 it works as desired. Then run `make update_locked_config` and check-in
