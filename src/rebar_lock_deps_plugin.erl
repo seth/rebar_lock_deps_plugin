@@ -62,7 +62,8 @@ lock_deps(Config) ->
     DepVersions = get_dep_versions(DepDirs),
     AllDeps = collect_deps(["."|DepDirs++SubDirs]),
     NewDeps = get_locked_deps(DepVersions, AllDeps, Ignores),
-    NewConfig = "./rebar.config.lock",
+    NewConfig = rebar_config:get_global(Config,
+        lock_config, "./rebar.config.lock"),
     write_rebar_lock("./rebar.config", NewConfig, NewDeps),
     io:format("wrote locked rebar config to: ~s~n", [NewConfig]),
     ok.
