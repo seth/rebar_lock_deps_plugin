@@ -1,12 +1,12 @@
-# lock_deps: Generate Locked Dependencies for Rebar Projects #
+# A Rebar Plugin that Generates Locked Dependencies for Rebar Projects #
 
 ## tl;dr ##
 
-Use this script to create reproducible builds for a rebar
-project. Generate a `rebar.config.lock` file by running the script
+Use this plugin to create reproducible builds for a rebar
+project. Generate a `rebar.config.lock` file by running the command
 from the top level directory of your project like this:
 
-    ./lock_deps deps
+    ./rebar lock-deps
 
 The generated `rebar.config.lock` file lists every dependency of the
 project and locks it at the git revision found in the `deps` directory
@@ -16,14 +16,27 @@ A clean build using the lock file (`rebar -C rebar.config.lock`) will
 pull all dependencies as found at the time of generation. Suggestions
 for integrating with Make are described below.
 
+## Installation ##
+
+Add the following to your top-level rebar.config:
+
+    %% Plugin dependency
+    {deps, [
+    	{rebar_lock_deps_plugin, ".*",
+    	  {git, "https://github.com/lukyanov/rebar_lock_deps_plugin.git", "master"}}
+    ]}.
+
+    %% Plugin usage
+    {rebar_plugins, [rebar_lock_deps_plugin]}.
+
 ## How it works ##
 
-The script must be run from a rebar project directory in which
+The command must be run from a rebar project directory in which
 `get-deps` has already been run. It generates a `rebar.config.lock`
 file where the dependencies are locked to the versions available
 locally (the current state of the project).
 
-The lock_deps script goes through each directory in your deps dir and
+The lock-deps command goes through each directory in your deps dir and
 calls `git rev-parse HEAD` to determine the currently checked out
 version. It also extracts the dependency specs (the `deps` key) from
 the rebar.config files inside each directory in deps (non-recursively)
@@ -41,8 +54,8 @@ locked version at the top-level.
 ## Ignoring some dependencies ##
 
 If there are dependencies which you do not wish to lock, you can list
-them after the deps directory argument on the command line. For
-example, `./lock_deps deps meck` would lock all dependencies except
+them using `ignore` option on the command line (use comma to separate values).
+For example, `./rebar lock-deps ignore=meck` would lock all dependencies except
 for `meck` which would retain the spec as found in one of the
 rebar.config files that declared it. Note that if a dependency is
 declared more than once, the script picks a spec "at random" to use.
@@ -64,7 +77,7 @@ Makefile:
     REBAR = ./rebar -C $(rebar_config)
 
     update_locked_config:
-    	@./lock_deps deps meck
+    	@./rebar lock-deps ignore=meck
 
 To tag the release branch, you would create a clean build and verify
 it works as desired. Then run `make update_locked_config` and check-in
