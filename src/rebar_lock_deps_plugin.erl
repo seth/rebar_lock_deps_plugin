@@ -31,6 +31,7 @@
 %%
 -module(rebar_lock_deps_plugin).
 -author("Seth Falcon <seth@userprimary.net>").
+-author("Yuri Lukyanov <y.snaky@gmail.com>").
 -export([
     'lock-deps'/2,
     'list-deps-versions'/2
@@ -39,7 +40,7 @@
 'lock-deps'(Config, _AppFile) ->
     run_on_base_dir(Config, fun lock_deps/1).
 
-'list-deps-versions'(Config, AppFile) ->
+'list-deps-versions'(Config, _AppFile) ->
     run_on_base_dir(Config, fun list_deps_versions/1).
 
 run_on_base_dir(Config, Fun) ->
