@@ -6,7 +6,7 @@ Use this plugin to create reproducible builds for a rebar
 project. Generate a `rebar.config.lock` file by running the command
 from the top level directory of your project like this:
 
-    ./rebar lock-deps
+    rebar lock-deps
 
 The generated `rebar.config.lock` file lists every dependency of the
 project and locks it at the git revision found in the `deps` directory
@@ -23,11 +23,11 @@ Add the following to your top-level rebar.config:
     %% Plugin dependency
     {deps, [
     	{rebar_lock_deps_plugin, ".*",
-    	  {git, "https://github.com/lukyanov/rebar_lock_deps_plugin.git", "master"}}
+         {git, "git://github.com/seth/rebar-tools.git", "master"}}
     ]}.
 
     %% Plugin usage
-    {rebar_plugins, [rebar_lock_deps_plugin]}.
+    {plugins, [rebar_lock_deps_plugin]}.
 
 ## How it works ##
 
@@ -54,18 +54,17 @@ locked version at the top-level.
 ## Ignoring some dependencies ##
 
 If there are dependencies which you do not wish to lock, you can list
-them using `ignore` option on the command line (use comma to separate values).
-For example, `./rebar lock-deps ignore=meck` would lock all dependencies except
-for `meck` which would retain the spec as found in one of the
-rebar.config files that declared it. Note that if a dependency is
-declared more than once, the script picks a spec "at random" to use.
+them using the `ignore` option on the command line (comma separate
+multiple values).  For example, `rebar lock-deps ignore=meck,eper`
+would lock all dependencies except for `meck` and `eper` which would
+retain the spec as found in one of the `rebar.config` files that
+declared it. Note that if a dependency is declared more than once, the
+script picks a spec "at random" to use.
 
 ## How you can integrate it into your build ##
 
-Have a better suggestion? Let me know!
-
 Assuming you build your project with `make`, add the following to your
-Makefile:
+`Makefile`:
 
     # The release branch should have a file named USE_REBAR_LOCKED
     use_locked_config = $(wildcard USE_REBAR_LOCKED)
@@ -74,20 +73,23 @@ Makefile:
     else
       rebar_config = rebar.config
     endif
-    REBAR = ./rebar -C $(rebar_config)
+    REBAR = rebar -C $(rebar_config)
 
     update_locked_config:
-    	@./rebar lock-deps ignore=meck
+    	@rebar lock-deps ignore=meck
 
 To tag the release branch, you would create a clean build and verify
 it works as desired. Then run `make update_locked_config` and check-in
-the resulting rebar.config.lock file. For the release branch, `touch
+the resulting `rebar.config.lock` file. For the release branch, `touch
 USE_REBAR_LOCKED` and check that in as well. Now create a tag.
 
 The idea is that a clean build from the tag will pull deps based on
 rebar.config.lock and you will have reproduced what you tested.
 
-On master, you don't have a USE_REBAR_LOCKED file checked in and will
-use the standard rebar.config file.
+On master, you don't have a `USE_REBAR_LOCKED` file checked in and will
+use the standard `rebar.config` file.
 
-This approach should keep merge conflicts to a minimum.
+This approach should keep merge conflicts to a minimum. It is also
+nice that you can easily review which dependencies have changed by
+comparing the `rebar.config.lock` file in version control.
+
