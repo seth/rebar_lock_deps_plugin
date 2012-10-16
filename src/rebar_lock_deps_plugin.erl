@@ -32,16 +32,30 @@
 -module(rebar_lock_deps_plugin).
 -author("Seth Falcon <seth@userprimary.net>").
 -author("Yuri Lukyanov <y.snaky@gmail.com>").
+
 -export([
-    'lock-deps'/2,
-    'list-deps-versions'/2
-]).
+         'bump-rel-version'/2,
+         'lock-deps'/2,
+         'list-deps-versions'/2
+        ]).
+
+-define(RELTOOL_CONFIG, "rel/reltool.config").
 
 'lock-deps'(Config, _AppFile) ->
     run_on_base_dir(Config, fun lock_deps/1).
 
 'list-deps-versions'(Config, _AppFile) ->
     run_on_base_dir(Config, fun list_deps_versions/1).
+
+%% @doc Update the version field in `rel/reltool.config'. The version
+%% is assumed to take the form of `X.Y.Z' where X, Y, and Z are
+%% non-negative integers. This command accepts a `version' argument to
+%% control the new version. When `version' is "patch" (default),
+%% "minor", or "major", the current version is appropriately
+%% incremented. If `version' is any other value, the specified value
+%% is taken as the new version literal with no format checking.
+'bump-rel-version'(Config, _AppFile) ->
+    run_on_base_dir(Config, fun bump_rel_version/1).
 
 run_on_base_dir(Config, Fun) ->
     case rebar_utils:processing_base_dir(Config) of
@@ -138,3 +152,60 @@ extract_deps(Dir) ->
             end;
         false -> []
     end.
+
+bump_rel_version(Config) ->
+    case filelib:is_file(?RELTOOL_CONFIG) of
+        true ->
+            RTConfig = read_reltool_config(),
+            UserVersion = rebar_config:get_global(Config, version, undefined),
+            SysConfig = proplists:get_value(sys, RTConfig),
+            {rel, Rel, OldVersion, Apps} = lists:keyfind(rel, 1, SysConfig),
+            NewVersion = new_version(UserVersion, OldVersion),
+            NewRel = {rel, Rel, NewVersion, Apps},
+            SysConfig1 = lists:keyreplace(rel, 1, SysConfig, NewRel),
+            RTConfig1 = lists:keystore(sys, 1, RTConfig, {sys, SysConfig1}),
+            write_reltool_config(RTConfig1),
+            io:format("Bumped to version: ~p~n", [NewVersion]),
+            ok;
+        false ->
+            io:format(?RELTOOL_CONFIG ++ " not found~n"),
+            ok
+    end.
+
+%% Assume a version of `X.Y.Z'. Default behavior is to increment
+%% Z. Incrementing the minor (Y) or major (Z) can be requesting by
+%% providing the version argument as "minor" or "major",
+%% respectively. If a value other than "major", "minor", or "patch" is
+%% encountered, it is taken as the version literal without any
+%% checking.
+new_version(undefined, OldVersion) ->
+    new_version("patch", OldVersion);
+new_version("major", OldVersion) ->
+    {Maj, _Min, _Pat} = parse_version(OldVersion),
+    version_to_str({Maj + 1, 0, 0});
+new_version("minor", OldVersion) ->
+    {Maj, Min, _Pat} = parse_version(OldVersion),
+    version_to_str({Maj, Min + 1, 0});
+new_version("patch", OldVersion) ->
+    {Maj, Min, Pat} = parse_version(OldVersion),
+    version_to_str({Maj, Min, Pat + 1});
+new_version(NewVersion, _OldVersion) ->
+    NewVersion.
+
+version_to_str({Maj, Min, Patch}) ->
+    string:join([ integer_to_list(V) || V <- [Maj, Min, Patch] ], ".").
+
+parse_version(Version) ->
+    [Maj, Min, Pat] = [ list_to_integer(V)
+                        || V <- re:split(Version, "\\.", [{return, list}]) ],
+    {Maj, Min, Pat}.
+    
+read_reltool_config() ->
+    {ok, Config} = file:consult(?RELTOOL_CONFIG),
+    Config.
+
+write_reltool_config(Config) ->
+    {ok, F} = file:open(?RELTOOL_CONFIG, [write]),
+    [ io:fwrite(F, "~p.~n", [Item]) || Item <- Config ],
+    io:fwrite(F, "~s", ["\n"]),
+    file:close(F).
