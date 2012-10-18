@@ -44,9 +44,7 @@
     run_on_base_dir(Config, fun list_deps_versions/1).
 
 run_on_base_dir(Config, Fun) ->
-    CurDir = filename:absname(rebar_utils:get_cwd()),
-    BaseDir = rebar_config:get_xconf(Config, base_dir, []),
-    case CurDir == BaseDir of
+    case rebar_utils:processing_base_dir(Config) of
         true -> Fun(Config);
         false -> ok
     end.
