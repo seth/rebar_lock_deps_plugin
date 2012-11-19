@@ -9,8 +9,7 @@ from the top level directory of your project like this:
     rebar lock-deps
 
 The generated `rebar.config.lock` file lists every dependency of the
-project and locks it at the git revision found in the `deps` directory
-using the `{tag, SHA}` syntax.
+project and locks it at the git revision found in the `deps` directory.
 
 A clean build using the lock file (`rebar -C rebar.config.lock`) will
 pull all dependencies as found at the time of generation. Suggestions
@@ -23,7 +22,7 @@ Add the following to your top-level rebar.config:
     %% Plugin dependency
     {deps, [
     	{rebar_lock_deps_plugin, ".*",
-         {git, "git://github.com/seth/rebar_lock_deps_plugin.git", "master"}}
+         {git, "git://github.com/seth/rebar_lock_deps_plugin.git", {branch, "master"}}}
     ]}.
 
     %% Plugin usage
@@ -43,7 +42,7 @@ the rebar.config files inside each directory in deps (non-recursively)
 along with the top-level rebar.config. Using this data, the script
 creates a new rebar.config.lock file as a clone of the top-level
 rebar.config file, but with the `deps` key replaced with the complete
-list of dependencies set to `{tag, SHA}` where the SHA is based on
+list of dependencies set to SHA that is based on
 what is currently checked out.
 
 If something fails during the get-deps rebar stage, take care to run

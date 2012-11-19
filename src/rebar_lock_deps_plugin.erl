@@ -6,7 +6,7 @@
 %%
 %% The lock-deps command generates an alternate rebar.config file that
 %% lists every dependency of a project and locks them at the git
-%% revision found in the deps directory using the `{tag, SHA}' syntax.
+%% revision found in the deps directory.
 %%
 %% Basic usage is:
 %% ```
@@ -107,7 +107,7 @@ write_rebar_lock(OrigPath, NewPath, NewDeps) ->
     ok.
 
 lock_dep({Name, _Version, {Git, Url, _Tag}}, Sha) ->
-    {Name, ".*", {Git, Url, {tag, Sha}}}.
+    {Name, ".*", {Git, Url, Sha}}.
 
 %% Find the git SHA1s of all the dependencies in `DepsDir' and return
 %% as a list of {Name, Sha} tuples where Name is an atom and Sha is a
