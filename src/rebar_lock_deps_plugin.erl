@@ -132,8 +132,8 @@ get_dep_versions(Dirs) ->
     [ sha_for_project(D) || D <- Dirs ].
 
 sha_for_project(Dir) ->
-    Cmd = ["cd ", Dir, "; git rev-parse HEAD"],
-    Sha = re:replace(os:cmd(Cmd), "\n$", "", [{return, list}]),
+    Out = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
+    Sha = re:replace(Out, "\n$", "", [{return, list}]),
     {list_to_atom(filename:basename(Dir)), Sha}.
 
 deps_dirs(Dir) ->
