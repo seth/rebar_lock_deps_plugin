@@ -35,6 +35,7 @@
 
 -export([
          'bump-rel-version'/2,
+         'log-changed-deps'/2,
          'lock-deps'/2,
          'list-deps-versions'/2
         ]).
@@ -56,6 +57,9 @@
 %% is taken as the new version literal with no format checking.
 'bump-rel-version'(Config, _AppFile) ->
     run_on_base_dir(Config, fun bump_rel_version/1).
+
+'log-changed-deps'(Config, _AppFile) ->
+    run_on_base_dir(Config, fun log_changed_deps/1).
 
 run_on_base_dir(Config, Fun) ->
     case rebar_utils:processing_base_dir(Config) of
@@ -209,3 +213,20 @@ write_reltool_config(Config) ->
     [ io:fwrite(F, "~p.~n", [Item]) || Item <- Config ],
     io:fwrite(F, "~s", ["\n"]),
     file:close(F).
+
+log_changed_deps(Config) ->
+    Fd = case rebar_config:get_global(Config, log, undefined) of
+             undefined ->
+                 standard_io;
+             FileName ->
+                 {ok, IO} = file:open(FileName, [write]),
+                 IO
+         end,
+    Rev = rebar_config:get_global(Config, rev, "HEAD"),
+    rldp_change_log:change_log(Rev, Fd),
+    case Fd of
+        standard_io -> ok;
+        _ -> file:close(Fd)
+    end,
+    ok.
+
