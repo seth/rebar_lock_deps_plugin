@@ -28,7 +28,7 @@ log_changed_dep(Fd, {Dep, [Old, New]}) ->
     Cmd = iolist_to_string(["git log --format='    %ad %h %s' --date=short ",
                             Old, "..", New]),
     Dir = iolist_to_string(["deps/", atom_to_list(Dep)]),
-    Log = cmd_in_dir(Cmd, Dir),
+    Log = rldp_util:cmd_in_dir(Cmd, Dir),
     case Log of
         %% if no loggable differences, ommit
         "" -> ok;
@@ -85,16 +85,6 @@ version_from_reltool_config(Terms) ->
     {rel, Name, Version, _} = lists:keyfind(rel, 1, SysConfig),
     {Name, Version}.
 
-%% Run `Cmd' in directory `Dir'.
-cmd_in_dir(Cmd, Dir) ->
-    {ok, StartDir} = file:get_cwd(),
-    try
-        ok = file:set_cwd(Dir),
-        os:cmd(Cmd)
-    after
-        file:set_cwd(StartDir)
-    end.
-
 merge_deps(Terms, Dict) ->
     Deps = proplists:get_value(deps, Terms),
     lists:foldl(fun({Dep, _, {git, _, {tag, Tag}}}, ADict) ->
@@ -104,7 +94,7 @@ merge_deps(Terms, Dict) ->
                 end, Dict, Deps).
 
 old_file_as_terms(Rev, Name) ->
-    Dest = mktemp_name([Name, "_"]),
+    Dest = rldp_util:mktemp_name([Name, "_"]),
     Cmd = iolist_to_string(["git show ", Rev, ":", Name, " > ", Dest]),
     os:cmd(Cmd),
     {ok, Terms} = file:consult(Dest),
@@ -113,7 +103,3 @@ old_file_as_terms(Rev, Name) ->
 
 iolist_to_string(L) ->
     binary_to_list(iolist_to_binary(L)).
-
-mktemp_name(Prefix) ->
-    <<Int:32/big-unsigned-integer>> = crypto:rand_bytes(4),
-    lists:flatten([Prefix, io_lib:format("~8.16.0b", [Int])]).
