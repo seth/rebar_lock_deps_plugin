@@ -35,9 +35,11 @@
 
 -export([
          'bump-rel-version'/2,
+         'commit-release'/2,
          'log-changed-deps'/2,
          'lock-deps'/2,
-         'list-deps-versions'/2
+         'list-deps-versions'/2,
+         'tag-release'/2
         ]).
 
 -define(RELTOOL_CONFIG, "rel/reltool.config").
@@ -60,6 +62,12 @@
 
 'log-changed-deps'(Config, _AppFile) ->
     run_on_base_dir(Config, fun log_changed_deps/1).
+
+'commit-release'(Config, _AppFile) ->
+    run_on_base_dir(Config, fun commit_release/1).
+
+'tag-release'(Config, _AppFile) ->
+    run_on_base_dir(Config, fun tag_release/1).
 
 run_on_base_dir(Config, Fun) ->
     case rebar_utils:processing_base_dir(Config) of
@@ -203,7 +211,7 @@ parse_version(Version) ->
     [Maj, Min, Pat] = [ list_to_integer(V)
                         || V <- re:split(Version, "\\.", [{return, list}]) ],
     {Maj, Min, Pat}.
-    
+
 read_reltool_config() ->
     {ok, Config} = file:consult(?RELTOOL_CONFIG),
     Config.
@@ -230,3 +238,9 @@ log_changed_deps(Config) ->
     end,
     ok.
 
+commit_release(Config) ->
+    Rev = rebar_config:get_global(Config, rev, "HEAD"),
+    rldp_change_log:commit_release(Rev).
+
+tag_release(_Config) ->
+    rldp_change_log:tag_release().

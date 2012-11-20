@@ -1,6 +1,8 @@
 -module(rldp_change_log).
 
--export([change_log/2]).
+-export([change_log/2,
+         commit_release/1,
+         tag_release/0]).
 
 change_log(Revision, Fd) ->
     {ok, NewTerms} = file:consult("rebar.config.lock"),
@@ -10,6 +12,34 @@ change_log(Revision, Fd) ->
     log_new_deps(Fd, Changes),
     log_removed_deps(Fd, Changes),
     log_changed_deps(Fd, Changes),
+    ok.
+
+%% !!! blindly commits changes to rebar.config.lock and rel/reltool.config
+commit_release(Revision) ->
+    TempFile = rldp_util:mktemp_name("releast-commit-msg-"),
+    {ok, Fd} = file:open(TempFile, [write]),
+    ok = change_log(Revision, Fd),
+    file:close(Fd),
+    Cmds = ["git add rebar.config.lock rel/reltool.config",
+            "git commit -F " ++ TempFile],
+    [ os:cmd(Cmd) || Cmd <- Cmds ],
+    file:delete(TempFile),
+    Summary = os:cmd("git log -n1 --oneline --abbrev"),
+    io:format("commited: ~s", [Summary]),       % cmd has trailing \n
+    ok.
+
+%% Create an annotated tag pulling the tag name from the current
+%% release version in rel/reltool.config and setting a simple
+%% standardized tag message using the release name.
+tag_release() ->
+    {Name, Tag, _NewVer} = changed_rel_version("HEAD"),
+    TagMsg = Name ++ " " ++ Tag,
+    Res = os:cmd("git tag -a " ++ Tag ++ " -m '" ++ TagMsg ++ "'"),
+    case Res of
+        "fatal" ++ _ -> error(git_tag_failed);
+        _ ->
+            io:format("tagged: (~s) ~s~n", [Tag, TagMsg])
+    end,
     ok.
 
 log_changed_rel_version(Fd, {Name, _Old, New}) ->
