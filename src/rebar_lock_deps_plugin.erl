@@ -35,8 +35,11 @@
 
 -export([
          'bump-rel-version'/2,
+         'commit-release'/2,
+         'log-changed-deps'/2,
          'lock-deps'/2,
-         'list-deps-versions'/2
+         'list-deps-versions'/2,
+         'tag-release'/2
         ]).
 
 -define(RELTOOL_CONFIG, "rel/reltool.config").
@@ -56,6 +59,15 @@
 %% is taken as the new version literal with no format checking.
 'bump-rel-version'(Config, _AppFile) ->
     run_on_base_dir(Config, fun bump_rel_version/1).
+
+'log-changed-deps'(Config, _AppFile) ->
+    run_on_base_dir(Config, fun log_changed_deps/1).
+
+'commit-release'(Config, _AppFile) ->
+    run_on_base_dir(Config, fun commit_release/1).
+
+'tag-release'(Config, _AppFile) ->
+    run_on_base_dir(Config, fun tag_release/1).
 
 run_on_base_dir(Config, Fun) ->
     case rebar_utils:processing_base_dir(Config) of
@@ -128,8 +140,8 @@ get_dep_versions(Dirs) ->
     [ sha_for_project(D) || D <- Dirs ].
 
 sha_for_project(Dir) ->
-    Cmd = ["cd ", Dir, "; git rev-parse HEAD"],
-    Sha = re:replace(os:cmd(Cmd), "\n$", "", [{return, list}]),
+    Out = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
+    Sha = re:replace(Out, "\n$", "", [{return, list}]),
     {list_to_atom(filename:basename(Dir)), Sha}.
 
 deps_dirs(Dir) ->
@@ -199,7 +211,7 @@ parse_version(Version) ->
     [Maj, Min, Pat] = [ list_to_integer(V)
                         || V <- re:split(Version, "\\.", [{return, list}]) ],
     {Maj, Min, Pat}.
-    
+
 read_reltool_config() ->
     {ok, Config} = file:consult(?RELTOOL_CONFIG),
     Config.
@@ -209,3 +221,26 @@ write_reltool_config(Config) ->
     [ io:fwrite(F, "~p.~n", [Item]) || Item <- Config ],
     io:fwrite(F, "~s", ["\n"]),
     file:close(F).
+
+log_changed_deps(Config) ->
+    Fd = case rebar_config:get_global(Config, log, undefined) of
+             undefined ->
+                 standard_io;
+             FileName ->
+                 {ok, IO} = file:open(FileName, [write]),
+                 IO
+         end,
+    Rev = rebar_config:get_global(Config, rev, "HEAD"),
+    rldp_change_log:change_log(Rev, Fd),
+    case Fd of
+        standard_io -> ok;
+        _ -> file:close(Fd)
+    end,
+    ok.
+
+commit_release(Config) ->
+    Rev = rebar_config:get_global(Config, rev, "HEAD"),
+    rldp_change_log:commit_release(Rev).
+
+tag_release(_Config) ->
+    rldp_change_log:tag_release().
