@@ -119,6 +119,8 @@ merge_deps(Terms, Dict) ->
     Deps = proplists:get_value(deps, Terms),
     lists:foldl(fun({Dep, _, {git, _, {tag, Tag}}}, ADict) ->
                         dict:append(Dep, Tag, ADict);
+                   ({Dep, _, {git, _, {branch, Branch}}}, ADict) ->
+                        dict:append(Dep, Branch, ADict);
                    ({Dep, _, {git, _, SHA}}, ADict) ->
                         dict:append(Dep, SHA, ADict)
                 end, Dict, Deps).
