@@ -107,9 +107,9 @@ get_locked_deps(DepVersions, AllDeps, Ignores) ->
     IgnoreNames = [ list_to_atom(I) || I <- Ignores ],
     NewDeps = [ begin
                     DepSpec = lists:keyfind(Name, 1, AllDeps),
-                    lock_dep(DepSpec, Sha)
+                    lock_dep(DepSpec, Sha, Url)
                 end
-                || {Name, Sha} <- DepVersions,
+                || {Name, Sha, Url} <- DepVersions,
                    lists:member(Name, IgnoreNames) =:= false ],
     IgnoreDeps0 = [ lists:keyfind(Name, 1, AllDeps) || Name <- IgnoreNames ],
     IgnoreDeps = [ D || D <- IgnoreDeps0, D =/= false ],
@@ -130,7 +130,7 @@ write_rebar_lock(OrigPath, NewPath, NewDeps) ->
     file:close(F),
     ok.
 
-lock_dep({Name, _Version, {Git, Url, _Tag}}, Sha) ->
+lock_dep({Name, _Version, {Git, _Url, _Tag}}, Sha, Url) ->
     {Name, ".*", {Git, Url, Sha}}.
 
 %% Find the git SHA1s of all the dependencies in `DepsDir' and return
@@ -140,9 +140,11 @@ get_dep_versions(Dirs) ->
     [ sha_for_project(D) || D <- Dirs ].
 
 sha_for_project(Dir) ->
-    Out = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
-    Sha = re:replace(Out, "\n$", "", [{return, list}]),
-    {list_to_atom(filename:basename(Dir)), Sha}.
+    ShaWithNewLine = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
+    UrlWithNewLine = rldp_util:cmd_in_dir("git config --get remote.origin.url", Dir),
+    Sha = re:replace(ShaWithNewLine, "\n$", "", [{return, list}]),
+    Url = re:replace(UrlWithNewLine, "\n$", "", [{return, list}]),
+    {list_to_atom(filename:basename(Dir)), Sha, Url}.
 
 deps_dirs(Dir) ->
     [ D || D <- filelib:wildcard(Dir ++ "/*"), filelib:is_dir(D) ].
