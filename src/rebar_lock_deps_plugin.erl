@@ -78,7 +78,7 @@ run_on_base_dir(Config, Fun) ->
 lock_deps(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
-    DepDirs = deps_dirs(DepsDir),
+    DepDirs = deps_dirs(Config, DepsDir),
     SubDirs = rebar_config:get(Config, sub_dirs, []),
     DepVersions = get_dep_versions(DepDirs),
     AllDeps = collect_deps(["."|DepDirs++SubDirs]),
@@ -91,10 +91,12 @@ lock_deps(Config) ->
 
 list_deps_versions(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
-    Dirs = deps_dirs(DepsDir),
+    Dirs = deps_dirs(Config, DepsDir),
     DepVersions = get_dep_versions(Dirs),
     lists:foreach(fun({Dep, Ver}) ->
-        io:format("~s ~s~n", [Ver, Dep])
+                          io:format("~s ~s~n", [Ver, Dep]);
+                     ({Dep, Ver, _Url}) ->
+                          io:format("~s ~s~n", [Ver, Dep])                          
     end, DepVersions),
     ok.
 
@@ -107,9 +109,9 @@ get_locked_deps(DepVersions, AllDeps, Ignores) ->
     IgnoreNames = [ list_to_atom(I) || I <- Ignores ],
     NewDeps = [ begin
                     DepSpec = lists:keyfind(Name, 1, AllDeps),
-                    lock_dep(DepSpec, Sha)
+                    lock_dep(DepSpec, Sha, Url)
                 end
-                || {Name, Sha} <- DepVersions,
+                || {Name, Sha, Url} <- DepVersions,
                    lists:member(Name, IgnoreNames) =:= false ],
     IgnoreDeps0 = [ lists:keyfind(Name, 1, AllDeps) || Name <- IgnoreNames ],
     IgnoreDeps = [ D || D <- IgnoreDeps0, D =/= false ],
@@ -130,7 +132,7 @@ write_rebar_lock(OrigPath, NewPath, NewDeps) ->
     file:close(F),
     ok.
 
-lock_dep({Name, _Version, {Git, Url, _Tag}}, Sha) ->
+lock_dep({Name, _Version, {Git, _Url, _Tag}}, Sha, Url) ->
     {Name, ".*", {Git, Url, Sha}}.
 
 %% Find the git SHA1s of all the dependencies in `DepsDir' and return
@@ -140,12 +142,59 @@ get_dep_versions(Dirs) ->
     [ sha_for_project(D) || D <- Dirs ].
 
 sha_for_project(Dir) ->
-    Out = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
-    Sha = re:replace(Out, "\n$", "", [{return, list}]),
-    {list_to_atom(filename:basename(Dir)), Sha}.
+    ShaWithNewLine = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
+    UrlWithNewLine = rldp_util:cmd_in_dir("git config --get remote.origin.url", Dir),
+    Sha = re:replace(ShaWithNewLine, "\n$", "", [{return, list}]),
+    Url = re:replace(UrlWithNewLine, "\n$", "", [{return, list}]),
+    {list_to_atom(filename:basename(Dir)), Sha, Url}.
 
-deps_dirs(Dir) ->
-    [ D || D <- filelib:wildcard(Dir ++ "/*"), filelib:is_dir(D) ].
+
+deps_dirs(Config, Dir) ->
+    LocalDeps = rebar_config:get(Config, deps, []),
+    lists:foldl(fun(LocalDep, AccIn) -> do_deps_dir(Dir, LocalDep, AccIn) end, [], LocalDeps).
+
+deps_dirs(Config, Dir, CurrentDeps, AccIn) ->
+     LocalDeps = rebar_config:get(Config, deps, []),
+    do_deps_dir(Dir, LocalDeps, CurrentDeps, AccIn).
+
+
+
+do_deps_dir(Dir, {Dep, _, _}, AccIn) ->
+    DepDir = filename:join([Dir, Dep]),
+    Deps = find_deps(Dep, Dir),
+    Result = do_deps_dir(Dir, Deps,[], AccIn),
+    AccIn ++ Result ++ [DepDir].
+do_deps_dir(_, [], CurrentDeps, _AccIn) ->
+    CurrentDeps;
+do_deps_dir(Dir, [{Dep, _, _} | Rest], CurrentDeps, AccIn) ->
+    DepConfig = filename:join([Dir, Dep, "rebar.config"]),
+    DepDir = filename:join([Dir, Dep]),
+    Result =case lists:any(fun(Val) ->
+                              Val == DepDir
+                   end, AccIn ++ CurrentDeps) of
+        true ->
+            do_deps_dir(Dir, Rest, CurrentDeps, AccIn);
+        false ->
+            case filelib:is_file(DepConfig) of
+                    true ->
+                        Config = rebar_config:new(DepConfig),
+                        deps_dirs(Config, Dir, CurrentDeps, AccIn) ++ [DepDir];
+                    false ->
+                        do_deps_dir(Dir, Rest, CurrentDeps ++ [DepDir], AccIn)
+            end
+    end,
+    do_deps_dir(Dir, Rest, Result, AccIn).
+
+find_deps(Dep, Dir) ->
+    DepConfig = filename:join([Dir, Dep, "rebar.config"]),
+    case filelib:is_file(DepConfig) of
+        true ->
+            Config = rebar_config:new(DepConfig),
+            rebar_config:get(Config, deps, []);
+        false ->
+            []
+    end.
+
 
 collect_deps(Dirs) ->
     %% Note that there may be duplicate entries
