@@ -78,7 +78,7 @@ run_on_base_dir(Config, Fun) ->
 lock_deps(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
-    DepDirs = deps_dirs(Config, DepsDir, []),
+    DepDirs = deps_dirs(Config, DepsDir),
     SubDirs = rebar_config:get(Config, sub_dirs, []),
     DepVersions = get_dep_versions(DepDirs),
     AllDeps = collect_deps(["."|DepDirs++SubDirs]),
@@ -91,7 +91,7 @@ lock_deps(Config) ->
 
 list_deps_versions(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
-    Dirs = deps_dirs(Config, DepsDir, []),
+    Dirs = deps_dirs(Config, DepsDir),
     DepVersions = get_dep_versions(Dirs),
     lists:foreach(fun({Dep, Ver}) ->
                           io:format("~s ~s~n", [Ver, Dep]);
@@ -149,31 +149,52 @@ sha_for_project(Dir) ->
     {list_to_atom(filename:basename(Dir)), Sha, Url}.
 
 
-deps_dirs(Config, Dir, AccIn) ->
+deps_dirs(Config, Dir) ->
     LocalDeps = rebar_config:get(Config, deps, []),
-    do_deps_dir(Dir, LocalDeps, AccIn).
+    lists:foldl(fun(LocalDep, AccIn) -> do_deps_dir(Dir, LocalDep, AccIn) end, [], LocalDeps).
 
-do_deps_dir(_, [], AccIn) ->
-    AccIn;
+deps_dirs(Config, Dir, CurrentDeps, AccIn) ->
+     LocalDeps = rebar_config:get(Config, deps, []),
+    do_deps_dir(Dir, LocalDeps, CurrentDeps, AccIn).
 
-do_deps_dir(Dir, [{Dep, _, _} | Rest], AccIn) ->
+
+
+do_deps_dir(Dir, {Dep, _, _}, AccIn) ->
+    DepDir = filename:join([Dir, Dep]),
+    Deps = find_deps(Dep, Dir),
+    Result = do_deps_dir(Dir, Deps,[], AccIn),
+    AccIn ++ Result ++ [DepDir].
+do_deps_dir(_, [], CurrentDeps, _AccIn) ->
+    CurrentDeps;
+do_deps_dir(Dir, [{Dep, _, _} | Rest], CurrentDeps, AccIn) ->
     DepConfig = filename:join([Dir, Dep, "rebar.config"]),
     DepDir = filename:join([Dir, Dep]),
     Result =case lists:any(fun(Val) ->
                               Val == DepDir
-                   end, AccIn) of
+                   end, AccIn ++ CurrentDeps) of
         true ->
-            do_deps_dir(Dir, Rest, AccIn);
+            do_deps_dir(Dir, Rest, CurrentDeps, AccIn);
         false ->
             case filelib:is_file(DepConfig) of
                     true ->
                         Config = rebar_config:new(DepConfig),
-                        deps_dirs(Config, Dir, AccIn ++ [DepDir]);
+                        deps_dirs(Config, Dir, CurrentDeps, AccIn) ++ [DepDir];
                     false ->
-                        do_deps_dir(Dir, Rest, AccIn ++ [DepDir])
+                        do_deps_dir(Dir, Rest, CurrentDeps ++ [DepDir], AccIn)
             end
     end,
-    do_deps_dir(Dir, Rest, Result).
+    do_deps_dir(Dir, Rest, Result, AccIn).
+
+find_deps(Dep, Dir) ->
+    DepConfig = filename:join([Dir, Dep, "rebar.config"]),
+    case filelib:is_file(DepConfig) of
+        true ->
+            Config = rebar_config:new(DepConfig),
+            rebar_config:get(Config, deps, []);
+        false ->
+            []
+    end.
+
 
 collect_deps(Dirs) ->
     %% Note that there may be duplicate entries
