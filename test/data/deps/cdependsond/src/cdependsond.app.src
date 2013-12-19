@@ -1,0 +1,12 @@
+%% -*- mode: erlang -*-
+{application, cdependsond,
+ [
+  {description, "Test application for rebar_lock_deps_plugin"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
