@@ -78,7 +78,7 @@ run_on_base_dir(Config, Fun) ->
 lock_deps(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
-    DepDirs = deps_dirs(DepsDir),
+    DepDirs = deps_dirs(Config, DepsDir, []),
     SubDirs = rebar_config:get(Config, sub_dirs, []),
     DepVersions = get_dep_versions(DepDirs),
     AllDeps = collect_deps(["."|DepDirs++SubDirs]),
@@ -91,10 +91,12 @@ lock_deps(Config) ->
 
 list_deps_versions(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
-    Dirs = deps_dirs(DepsDir),
+    Dirs = deps_dirs(Config, DepsDir, []),
     DepVersions = get_dep_versions(Dirs),
     lists:foreach(fun({Dep, Ver}) ->
-        io:format("~s ~s~n", [Ver, Dep])
+                          io:format("~s ~s~n", [Ver, Dep]);
+                     ({Dep, Ver, _Url}) ->
+                          io:format("~s ~s~n", [Ver, Dep])                          
     end, DepVersions),
     ok.
 
@@ -146,8 +148,32 @@ sha_for_project(Dir) ->
     Url = re:replace(UrlWithNewLine, "\n$", "", [{return, list}]),
     {list_to_atom(filename:basename(Dir)), Sha, Url}.
 
-deps_dirs(Dir) ->
-    [ D || D <- filelib:wildcard(Dir ++ "/*"), filelib:is_dir(D) ].
+
+deps_dirs(Config, Dir, AccIn) ->
+    LocalDeps = rebar_config:get(Config, deps, []),
+    do_deps_dir(Dir, LocalDeps, AccIn).
+
+do_deps_dir(_, [], AccIn) ->
+    AccIn;
+
+do_deps_dir(Dir, [{Dep, _, _} | Rest], AccIn) ->
+    DepConfig = filename:join([Dir, Dep, "rebar.config"]),
+    DepDir = filename:join([Dir, Dep]),
+    Result =case lists:any(fun(Val) ->
+                              Val == DepDir
+                   end, AccIn) of
+        true ->
+            do_deps_dir(Dir, Rest, AccIn);
+        false ->
+            case filelib:is_file(DepConfig) of
+                    true ->
+                        Config = rebar_config:new(DepConfig),
+                        deps_dirs(Config, Dir, AccIn ++ [DepDir]);
+                    false ->
+                        do_deps_dir(Dir, Rest, AccIn ++ [DepDir])
+            end
+    end,
+    do_deps_dir(Dir, Rest, Result).
 
 collect_deps(Dirs) ->
     %% Note that there may be duplicate entries
