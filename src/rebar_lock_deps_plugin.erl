@@ -94,8 +94,10 @@ list_deps_versions(Config) ->
     Dirs = deps_dirs(DepsDir),
     DepVersions = get_dep_versions(Dirs),
     lists:foreach(fun({Dep, Ver}) ->
-        io:format("~s ~s~n", [Ver, Dep])
-    end, DepVersions),
+                          io:format("~s ~s~n", [Ver, Dep]);
+                     ({Dep, Ver, _Url}) ->
+                          io:format("~s ~s~n", [Ver, Dep])
+                  end, DepVersions),
     ok.
 
 %% Create rebar dependency specs for each dep in `DepVersions' locked
