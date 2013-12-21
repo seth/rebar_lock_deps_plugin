@@ -1,6 +1,6 @@
 {application, rebar_lock_deps_plugin, [
 	{description, "A rebar plugin to lock deps"},
-	{vsn, "2.0.1"},
+	{vsn, "3.0.0"},
 	{registered, []},
 	{applications, [kernel, stdlib]},
 	{module, []},
