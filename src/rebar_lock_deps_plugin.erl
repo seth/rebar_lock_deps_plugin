@@ -44,6 +44,10 @@
 
 -define(RELTOOL_CONFIG, "rel/reltool.config").
 
+-ifdef(TEST).
+-compile([export_all]).
+-endif.
+
 'lock-deps'(Config, _AppFile) ->
     run_on_base_dir(Config, fun lock_deps/1).
 
@@ -78,7 +82,7 @@ run_on_base_dir(Config, Fun) ->
 lock_deps(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
-    DepDirs = deps_dirs(DepsDir),
+    DepDirs = ordered_deps(Config, DepsDir),
     SubDirs = rebar_config:get(Config, sub_dirs, []),
     DepVersions = get_dep_versions(DepDirs),
     AllDeps = collect_deps(["."|DepDirs++SubDirs]),
@@ -91,11 +95,13 @@ lock_deps(Config) ->
 
 list_deps_versions(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
-    Dirs = deps_dirs(DepsDir),
+    Dirs = ordered_deps(Config, DepsDir),
     DepVersions = get_dep_versions(Dirs),
     lists:foreach(fun({Dep, Ver}) ->
-        io:format("~s ~s~n", [Ver, Dep])
-    end, DepVersions),
+                          io:format("~s ~s~n", [Ver, Dep]);
+                     ({Dep, Ver, _Url}) ->
+                          io:format("~s ~s~n", [Ver, Dep])
+                  end, DepVersions),
     ok.
 
 %% Create rebar dependency specs for each dep in `DepVersions' locked
@@ -146,8 +152,42 @@ sha_for_project(Dir) ->
     Url = re:replace(UrlWithNewLine, "\n$", "", [{return, list}]),
     {list_to_atom(filename:basename(Dir)), Sha, Url}.
 
-deps_dirs(Dir) ->
-    [ D || D <- filelib:wildcard(Dir ++ "/*"), filelib:is_dir(D) ].
+
+ordered_deps(Config, Dir) ->
+    AllDeps = read_all_deps(Config, Dir),
+    OrderedDeps = order_deps(AllDeps),
+    [ filename:join(Dir, D) || D <- OrderedDeps ].
+
+order_deps(AllDeps) ->
+    Top = proplists:get_value(top, AllDeps),
+    order_deps(lists:reverse(Top), AllDeps, []).
+
+order_deps([], _AllDeps, Acc) ->
+    de_dup(Acc);
+order_deps([Item|Rest], AllDeps, Acc) ->
+    ItemDeps = proplists:get_value(Item, AllDeps),
+    order_deps(lists:reverse(ItemDeps) ++ Rest, AllDeps, [Item | Acc]).
+
+read_all_deps(Config, Dir) ->
+    TopDeps = rebar_config:get(Config, deps, []),
+    Acc = [{top, dep_names(TopDeps)}],
+    DepDirs = filelib:wildcard(filename:join(Dir, "*")),
+    Acc ++ [
+     {filename:basename(D), dep_names(extract_deps(D))}
+     || D <- DepDirs ].
+
+dep_names(Deps) ->
+    [ erlang:atom_to_list(Name) || {Name, _, _} <- Deps ].
+
+de_dup(AccIn) ->
+    WithIndex = lists:zip(AccIn, lists:seq(1, length(AccIn))),
+    UWithIndex = lists:usort(fun({A, _}, {B, _}) ->
+                                     A =< B
+                             end, WithIndex),
+    Ans0 = lists:sort(fun({_, I1}, {_, I2}) ->
+                              I1 =< I2
+                      end, UWithIndex),
+    [ V || {V, _} <- Ans0 ].
 
 collect_deps(Dirs) ->
     %% Note that there may be duplicate entries
