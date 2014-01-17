@@ -84,6 +84,7 @@ lock_deps(Config) ->
     Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
     DepDirs = ordered_deps(Config, DepsDir),
     SubDirs = rebar_config:get(Config, sub_dirs, []),
+    io:format("DepDirs:\n~p\n", [DepDirs]),
     DepVersions = get_dep_versions(DepDirs),
     AllDeps = collect_deps(["."|DepDirs++SubDirs]),
     NewDeps = get_locked_deps(DepVersions, AllDeps, Ignores),
@@ -96,6 +97,7 @@ lock_deps(Config) ->
 list_deps_versions(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Dirs = ordered_deps(Config, DepsDir),
+    io:format("Dirs:\n~p\n", [Dirs]),
     DepVersions = get_dep_versions(Dirs),
     lists:foreach(fun({Dep, Ver}) ->
                           io:format("~s ~s~n", [Ver, Dep]);
@@ -155,18 +157,26 @@ sha_for_project(Dir) ->
 
 ordered_deps(Config, Dir) ->
     AllDeps = read_all_deps(Config, Dir),
+    io:format("AllDeps:\n~p\n", [AllDeps]),
     OrderedDeps = order_deps(AllDeps),
     [ filename:join(Dir, D) || D <- OrderedDeps ].
 
 order_deps(AllDeps) ->
     Top = proplists:get_value(top, AllDeps),
+    io:format("Top:\n~p\n", [Top]),
     order_deps(lists:reverse(Top), AllDeps, []).
 
 order_deps([], _AllDeps, Acc) ->
     de_dup(Acc);
 order_deps([Item|Rest], AllDeps, Acc) ->
     ItemDeps = proplists:get_value(Item, AllDeps),
-    order_deps(lists:reverse(ItemDeps) ++ Rest, AllDeps, [Item | Acc]).
+    case ItemDeps of
+        undefined ->
+            io:format("skipping bogus dep: ~p\n", [Item]),
+            order_deps(Rest, AllDeps, Acc);
+        _ ->
+            order_deps(lists:reverse(ItemDeps) ++ Rest, AllDeps, [Item | Acc])
+    end.
 
 read_all_deps(Config, Dir) ->
     TopDeps = rebar_config:get(Config, deps, []),
