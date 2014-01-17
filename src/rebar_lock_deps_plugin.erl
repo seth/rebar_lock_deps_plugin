@@ -124,7 +124,8 @@ get_locked_deps(DepVersions, AllDeps, Ignores) ->
     IgnoreDeps ++ NewDeps.
 
 %% Write a locked down rebar.config file to `NewPath' based on the
-%% rebar.config file found at `OrigPath'.
+%% rebar.config file found at `OrigPath'. This does not check for or
+%% otherwise handle a `rebar.config.script' file.
 write_rebar_lock(OrigPath, NewPath, NewDeps) ->
     {ok, Orig} = file:consult(OrigPath),
     New = lists:keyreplace(deps, 1, Orig, {deps, NewDeps}),
@@ -166,7 +167,13 @@ order_deps([], _AllDeps, Acc) ->
     de_dup(Acc);
 order_deps([Item|Rest], AllDeps, Acc) ->
     ItemDeps = proplists:get_value(Item, AllDeps),
-    order_deps(lists:reverse(ItemDeps) ++ Rest, AllDeps, [Item | Acc]).
+    case ItemDeps of
+        undefined ->
+            io:format("missing dependency: ~p\nAllDeps: ~p~n", [Item, AllDeps]),
+            erlang:error({missing_dep, Item});
+        _ ->
+            order_deps(lists:reverse(ItemDeps) ++ Rest, AllDeps, [Item | Acc])
+    end.
 
 read_all_deps(Config, Dir) ->
     TopDeps = rebar_config:get(Config, deps, []),
@@ -196,16 +203,21 @@ collect_deps(Dirs) ->
                 end, [], Dirs).
 
 extract_deps(Dir) ->
-    ConfigFile = Dir ++ "/rebar.config",
-    case filelib:is_file(ConfigFile) of
+    case rebar_config_exists(Dir) of
         true ->
-            {ok, Config} = file:consult(Dir ++ "/rebar.config"),
+            ConfigFile = Dir ++ "/rebar.config",
+            {ok, Config} = rebar_config:consult_file(ConfigFile),
             case lists:keyfind(deps, 1, Config) of
                 {deps, Deps} -> Deps;
                 false -> []
             end;
         false -> []
     end.
+
+rebar_config_exists(Dir) ->
+    Plain = filename:join(Dir, "rebar.config"),
+    Script = Plain ++ ".script",
+    filelib:is_regular(Plain) orelse filelib:is_regular(Script).
 
 bump_rel_version(Config) ->
     case filelib:is_file(?RELTOOL_CONFIG) of
