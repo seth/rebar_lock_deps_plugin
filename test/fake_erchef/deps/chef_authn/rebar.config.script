@@ -1,0 +1,3 @@
+Deps = proplists:get_value(deps, CONFIG).
+RealDeps = lists:keydelete(bogus1, 1, Deps).
+lists:keystore(deps, 1, CONFIG, {deps, RealDeps}).
