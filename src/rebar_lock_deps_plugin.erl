@@ -137,8 +137,10 @@ write_rebar_lock(OrigPath, NewPath, NewDeps) ->
     file:close(F),
     ok.
 
-lock_dep({Name, _Version, {Git, _Url, _Tag}}, Sha, Url) ->
-    {Name, ".*", {Git, Url, Sha}}.
+lock_dep({Name, _Version, {Git, _Url}}, Sha, Url) ->
+        {Name, ".*", {Git, Url, Sha}};
+lock_dep({Name, Version, {Git, _Url, _Tag}}, Sha, Url) ->
+        lock_dep({Name, Version, {Git, _Url}}, Sha, Url).
 
 %% Find the git SHA1s of all the dependencies in `DepsDir' and return
 %% as a list of {Name, Sha} tuples where Name is an atom and Sha is a
