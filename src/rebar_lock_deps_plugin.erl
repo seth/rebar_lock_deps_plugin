@@ -43,6 +43,7 @@
         ]).
 
 -define(RELTOOL_CONFIG, "rel/reltool.config").
+-define(RELX_CONFIG, "relx.config").
 
 -ifdef(TEST).
 -compile([export_all]).
@@ -236,9 +237,27 @@ bump_rel_version(Config) ->
             io:format("Bumped to version: ~p~n", [NewVersion]),
             ok;
         false ->
-            io:format(?RELTOOL_CONFIG ++ " not found~n"),
-            ok
+            bump_relx_config_version(Config)
     end.
+
+bump_relx_config_version(Config) ->
+    bump_relx_config_version(filelib:is_file(?RELX_CONFIG), Config).
+
+bump_relx_config_version(true, Config) ->
+    %% NOTE: this needs to be smarter because relx.config can specify
+    %% more than one release. But for now, the common case.
+    {ok, Relx} = file:consult(?RELX_CONFIG),
+    {release, {RelName, OldVersion}, Goals} = lists:keyfind(release, 1, Relx),
+    UserVersion = rebar_config:get_global(Config, version, undefined),
+    NewVersion = new_version(UserVersion, OldVersion),
+    NewRel = {release, {RelName, NewVersion}, Goals},
+    NewRelx = lists:keyreplace(release, 1, Relx, NewRel),
+    write_relx_config(NewRelx),
+    io:format("Bumped to version: ~p~n", [NewVersion]),
+    ok;
+bump_relx_config_version(false, _Config) ->
+    io:format(?RELTOOL_CONFIG ++ " not found~n"
+              ?RELX_CONFIG ++ " not found~n").
 
 %% Assume a version of `X.Y.Z'. Default behavior is to increment
 %% Z. Incrementing the minor (Y) or major (Z) can be requesting by
@@ -274,6 +293,12 @@ read_reltool_config() ->
 
 write_reltool_config(Config) ->
     {ok, F} = file:open(?RELTOOL_CONFIG, [write]),
+    [ io:fwrite(F, "~p.~n", [Item]) || Item <- Config ],
+    io:fwrite(F, "~s", ["\n"]),
+    file:close(F).
+
+write_relx_config(Config) ->
+    {ok, F} = file:open(?RELX_CONFIG, [write]),
     [ io:fwrite(F, "~p.~n", [Item]) || Item <- Config ],
     io:fwrite(F, "~s", ["\n"]),
     file:close(F).
