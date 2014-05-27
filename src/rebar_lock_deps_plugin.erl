@@ -117,13 +117,25 @@ snapshot_dep(Config, {Dep, _, {git, _, Hash}}, Target) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Dest = filename:join([Target, DepsDir, atom_to_list(Dep)]),
     Dir = filename:absname(filename:join(DepsDir, atom_to_list(Dep))),
-    snapshot_dir(Dir, Dest, {git, Hash}).
+    snapshot_dir(Dir, Dest, {git, Hash}),
+    write_snapshot_vsn(Dir, Dest, {git, Hash});
+
+snapshot_dep(_Config, {_Dep, _, {_NotGit, _, _Hash}}, _Target) ->
+    rebar_utils:abort("make-snapshot support only git repositories").
 
 snapshot_dir(SrcDir, DestDir, {git, Hash}) ->
     ok = filelib:ensure_dir(filename:join(DestDir, "dummy")),
     Cmd = io_lib:format("git archive --format=tar ~s | (cd \"~s\" && tar xf -)",
         [Hash, DestDir]),
     {ok, _} =  rebar_utils:sh(lists:flatten(Cmd), [{cd, SrcDir}, use_stdout]),
+    ok.
+
+write_snapshot_vsn(SrcDir, DestDir, {Vcs, Hash}) ->
+    Filename = filename:join([DestDir, "priv", "vsn." ++ atom_to_list(Vcs)]),
+    filelib:ensure_dir(Filename),
+    {ok, F} = file:open(Filename, [write]),
+    io:fwrite(F, "~s~n", [version_for_project(SrcDir)]),
+    file:close(F),
     ok.
 
 list_deps_versions(Config) ->
@@ -187,6 +199,11 @@ sha_for_project(Dir) ->
     Sha = re:replace(ShaWithNewLine, "\n$", "", [{return, list}]),
     Url = re:replace(UrlWithNewLine, "\n$", "", [{return, list}]),
     {list_to_atom(filename:basename(Dir)), Sha, Url}.
+
+
+version_for_project(Dir) ->
+    VersionWithNewline = rldp_util:cmd_in_dir("git describe --long --tags 2>/dev/null || git rev-parse HEAD", Dir),
+    re:replace(VersionWithNewline, "\n$", "", [{return, list}]).
 
 
 ordered_deps(Config, Dir) ->
