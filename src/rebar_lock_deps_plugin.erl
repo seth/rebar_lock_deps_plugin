@@ -38,6 +38,7 @@
          'commit-release'/2,
          'log-changed-deps'/2,
          'lock-deps'/2,
+         'make-snapshot'/2,
          'list-deps-versions'/2,
          'tag-release'/2
         ]).
@@ -74,6 +75,9 @@
 'tag-release'(Config, _AppFile) ->
     run_on_base_dir(Config, fun tag_release/1).
 
+'make-snapshot'(Config, _App_File) ->
+    run_on_base_dir(Config, fun make_snapshot/1).
+
 run_on_base_dir(Config, Fun) ->
     case rebar_utils:processing_base_dir(Config) of
         true -> Fun(Config);
@@ -92,6 +96,34 @@ lock_deps(Config) ->
         lock_config, "./rebar.config.lock"),
     write_rebar_lock("./rebar.config", NewConfig, NewDeps),
     io:format("wrote locked rebar config to: ~s~n", [NewConfig]),
+    ok.
+
+make_snapshot(Config) ->
+    Target = filename:absname(rebar_config:get(Config, dist_dir, "dist")),
+    DepsDir = rebar_config:get(Config, deps_dir, "deps"),
+    Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
+    DepDirs = ordered_deps(Config, DepsDir),
+    SubDirs = rebar_config:get(Config, sub_dirs, []),
+    DepVersions = get_dep_versions(DepDirs),
+    AllDeps = collect_deps(["."|DepDirs++SubDirs]),
+    NewDeps = get_locked_deps(DepVersions, AllDeps, Ignores),
+    Cwd = rebar_utils:get_cwd(),
+    {_, Sha, _ } = sha_for_project(Cwd),
+    snapshot_dir(Cwd, Target, {git, Sha}),
+    [snapshot_dep(Config, Dep, Target) || Dep <- NewDeps],
+    ok.
+
+snapshot_dep(Config, {Dep, _, {git, _, Hash}}, Target) ->
+    DepsDir = rebar_config:get(Config, deps_dir, "deps"),
+    Dest = filename:join([Target, DepsDir, atom_to_list(Dep)]),
+    Dir = filename:absname(filename:join(DepsDir, atom_to_list(Dep))),
+    snapshot_dir(Dir, Dest, {git, Hash}).
+
+snapshot_dir(SrcDir, DestDir, {git, Hash}) ->
+    ok = filelib:ensure_dir(filename:join(DestDir, "dummy")),
+    Cmd = io_lib:format("git archive --format=tar ~s | (cd \"~s\" && tar xf -)",
+        [Hash, DestDir]),
+    {ok, _} =  rebar_utils:sh(lists:flatten(Cmd), [{cd, SrcDir}, use_stdout]),
     ok.
 
 list_deps_versions(Config) ->
