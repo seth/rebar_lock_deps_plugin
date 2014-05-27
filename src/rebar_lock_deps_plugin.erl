@@ -118,6 +118,7 @@ snapshot_dep(Config, {Dep, _, {git, _, Hash}}, Target) ->
     Dest = filename:join([Target, DepsDir, atom_to_list(Dep)]),
     Dir = filename:absname(filename:join(DepsDir, atom_to_list(Dep))),
     snapshot_dir(Dir, Dest, {git, Hash}),
+    copy_additional_files(Config, Dir, Dest),
     write_snapshot_vsn(Dir, Dest, {git, Hash});
 
 snapshot_dep(_Config, {_Dep, _, {_NotGit, _, _Hash}}, _Target) ->
@@ -137,6 +138,33 @@ write_snapshot_vsn(SrcDir, DestDir, {Vcs, Hash}) ->
     io:fwrite(F, "~s~n", [version_for_project(SrcDir)]),
     file:close(F),
     ok.
+
+copy_additional_files(Config, Dir, Dest) ->
+    Cwd = rebar_utils:get_cwd(),
+    file:set_cwd(Dir),
+    DepConfig = rebar_config:new(Config),
+    case rebar_config:get_local(DepConfig, snapshot_incl_files, []) of
+        FileList when is_list(FileList) ->
+            [ begin
+                DestPath = filename:join(Dest, filename:dirname(File)),
+                io:format("Copying ~p ~p~n", [File, DestPath]),
+
+                %% we can't ensure_dir(Dest ++ File), because File can contain
+                %% "*"
+                filelib:ensure_dir(filename:join(DestPath, "dummy")),
+                rebar_file_utils:cp_r([File], DestPath)
+              end
+            || File <- FileList],
+            ok;
+        _ ->
+            rebar_utils:abort(io_lib:format("Example of ~p:~n~p~n",
+                [snapshot_incl_files,
+                    {snapshot_incl_files,
+                        ["path_inside_dependency/*.jar", "path/otherfile"]}]))
+    end,
+    file:set_cwd(Cwd),
+    ok.
+
 
 list_deps_versions(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
