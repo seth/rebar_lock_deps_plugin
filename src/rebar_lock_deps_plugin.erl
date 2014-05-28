@@ -108,7 +108,7 @@ make_snapshot(Config) ->
     AllDeps = collect_deps(["."|DepDirs++SubDirs]),
     NewDeps = get_locked_deps(DepVersions, AllDeps, Ignores),
     Cwd = rebar_utils:get_cwd(),
-    {_, Sha, _ } = source_for_project(Cwd),
+    Sha = sha_for_project(Cwd),
     snapshot_dir(Cwd, Target, {git, Sha}),
     [snapshot_dep(Config, Dep, Target) || Dep <- NewDeps],
     ok.
@@ -222,12 +222,17 @@ get_dep_versions(Dirs) ->
     [ source_for_project(D) || D <- Dirs ].
 
 source_for_project(Dir) ->
-    ShaWithNewLine = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
-    UrlWithNewLine = rldp_util:cmd_in_dir("git config --get remote.origin.url", Dir),
-    Sha = strip_eol(ShaWithNewLine),
-    Url = strip_eol(UrlWithNewLine),
+    Sha = sha_for_project(Dir),
+    Url = url_for_project(Dir),
     {list_to_atom(filename:basename(Dir)), Sha, Url}.
 
+sha_for_project(Dir) ->
+    ShaWithNewLine = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
+    strip_eol(ShaWithNewLine).
+
+url_for_project(Dir) ->
+    UrlWithNewLine = rldp_util:cmd_in_dir("git config --get remote.origin.url", Dir),
+    strip_eol(UrlWithNewLine).
 
 version_for_project(Dir, Hash) ->
     Cmd ="git describe --long --tags",
