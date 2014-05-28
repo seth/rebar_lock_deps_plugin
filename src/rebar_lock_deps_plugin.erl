@@ -135,7 +135,7 @@ write_snapshot_vsn(SrcDir, DestDir, {Vcs, Hash}) ->
     Filename = filename:join([DestDir, "priv", "vsn." ++ atom_to_list(Vcs)]),
     filelib:ensure_dir(Filename),
     {ok, F} = file:open(Filename, [write]),
-    io:fwrite(F, "~s~n", [version_for_project(SrcDir)]),
+    io:fwrite(F, "~s~n", [version_for_project(SrcDir, Hash)]),
     file:close(F),
     ok.
 
@@ -229,9 +229,14 @@ sha_for_project(Dir) ->
     {list_to_atom(filename:basename(Dir)), Sha, Url}.
 
 
-version_for_project(Dir) ->
-    VersionWithNewline = rldp_util:cmd_in_dir("git describe --long --tags 2>/dev/null || git rev-parse HEAD", Dir),
-    re:replace(VersionWithNewline, "\n$", "", [{return, list}]).
+version_for_project(Dir, Hash) ->
+    Cmd ="git describe --long --tags",
+    case rebar_utils:sh(Cmd, [{cd, Dir},
+        {use_stdout, false}, return_on_error]) of
+            {ok, Version} ->
+                re:replace(Version, "\n$", "", [{return, list}]);
+            _ -> Hash
+    end.
 
 
 ordered_deps(Config, Dir) ->
