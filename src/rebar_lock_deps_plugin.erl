@@ -108,7 +108,7 @@ make_snapshot(Config) ->
     AllDeps = collect_deps(["."|DepDirs++SubDirs]),
     NewDeps = get_locked_deps(DepVersions, AllDeps, Ignores),
     Cwd = rebar_utils:get_cwd(),
-    {_, Sha, _ } = sha_for_project(Cwd),
+    {_, Sha, _ } = source_for_project(Cwd),
     snapshot_dir(Cwd, Target, {git, Sha}),
     [snapshot_dep(Config, Dep, Target) || Dep <- NewDeps],
     ok.
@@ -219,9 +219,9 @@ lock_dep({Name, Version, {Git, _Url, _Tag}}, Sha, Url) ->
 %% as a list of {Name, Sha} tuples where Name is an atom and Sha is a
 %% string.
 get_dep_versions(Dirs) ->
-    [ sha_for_project(D) || D <- Dirs ].
+    [ source_for_project(D) || D <- Dirs ].
 
-sha_for_project(Dir) ->
+source_for_project(Dir) ->
     ShaWithNewLine = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
     UrlWithNewLine = rldp_util:cmd_in_dir("git config --get remote.origin.url", Dir),
     Sha = re:replace(ShaWithNewLine, "\n$", "", [{return, list}]),
