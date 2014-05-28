@@ -224,8 +224,8 @@ get_dep_versions(Dirs) ->
 source_for_project(Dir) ->
     ShaWithNewLine = rldp_util:cmd_in_dir("git rev-parse HEAD", Dir),
     UrlWithNewLine = rldp_util:cmd_in_dir("git config --get remote.origin.url", Dir),
-    Sha = re:replace(ShaWithNewLine, "\n$", "", [{return, list}]),
-    Url = re:replace(UrlWithNewLine, "\n$", "", [{return, list}]),
+    Sha = strip_eol(ShaWithNewLine),
+    Url = strip_eol(UrlWithNewLine),
     {list_to_atom(filename:basename(Dir)), Sha, Url}.
 
 
@@ -234,10 +234,12 @@ version_for_project(Dir, Hash) ->
     case rebar_utils:sh(Cmd, [{cd, Dir},
         {use_stdout, false}, return_on_error]) of
             {ok, Version} ->
-                re:replace(Version, "\n$", "", [{return, list}]);
+                strip_eol(Version);
             _ -> Hash
     end.
 
+strip_eol(Line) ->
+    string:strip(Line, right, $\n).
 
 ordered_deps(Config, Dir) ->
     AllDeps = read_all_deps(Config, Dir),
