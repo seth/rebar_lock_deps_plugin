@@ -99,7 +99,7 @@ lock_deps(Config) ->
     ok.
 
 make_snapshot(Config) ->
-    Target = filename:absname(rebar_config:get(Config, dist_dir, "dist")),
+    Target = filename:absname(rebar_config:get_global(Config, dist_dir, "dist")),
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
     DepDirs = ordered_deps(Config, DepsDir),
