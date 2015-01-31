@@ -84,9 +84,9 @@ lock_deps(Config) ->
     DepsDir = rebar_config:get(Config, deps_dir, "deps"),
     Ignores = string:tokens(rebar_config:get_global(Config, ignore, ""), ","),
     DepDirs = ordered_deps(Config, DepsDir),
-    SubDirs = rebar_config:get(Config, sub_dirs, []),
+    SubDirs = get_sub_dirs(Config),
     DepVersions = get_dep_versions(DepDirs),
-    AllDeps = collect_deps(["."|DepDirs++SubDirs]),
+    AllDeps = collect_deps(["."|DepDirs ++ SubDirs]),
     NewDeps = get_locked_deps(DepVersions, AllDeps, Ignores),
     NewConfig = rebar_config:get_global(Config,
         lock_config, "./rebar.config.lock"),
@@ -139,7 +139,7 @@ write_rebar_lock(OrigPath, NewPath, NewDeps) ->
     ok.
 
 lock_dep({Name, _Version, {Git, _Url}}, Sha, Url) ->
-        {Name, ".*", {Git, Url, Sha}};
+    {Name, ".*", {Git, Url, Sha}};
 lock_dep({Name, Version, {Git, _Url, _Tag}}, Sha, Url) ->
         lock_dep({Name, Version, {Git, _Url}}, Sha, Url).
 
@@ -179,15 +179,20 @@ order_deps([Item|Rest], AllDeps, Acc) ->
     end.
 
 read_all_deps(Config, Dir) ->
+    SubDirs = get_sub_dirs(Config),
+    SubDeps = lists:flatmap(fun(D) -> extract_deps(D) end, SubDirs),
     TopDeps = rebar_config:get(Config, deps, []),
-    Acc = [{top, dep_names(TopDeps)}],
+    Acc = [{top, dep_names(TopDeps ++ SubDeps)}],
     DepDirs = filelib:wildcard(filename:join(Dir, "*")),
-    Acc ++ [
-     {filename:basename(D), dep_names(extract_deps(D))}
-     || D <- DepDirs ].
+    Acc ++ [{filename:basename(D), dep_names(extract_deps(D))}
+     	    || D <- DepDirs].
 
 dep_names(Deps) ->
     [ erlang:atom_to_list(Name) || {Name, _, _} <- Deps ].
+
+get_sub_dirs(Config) ->    
+    SubDirs = rebar_config:get(Config, sub_dirs, []),
+    lists:flatmap(fun filelib:wildcard/1, SubDirs).
 
 de_dup(AccIn) ->
     WithIndex = lists:zip(AccIn, lists:seq(1, length(AccIn))),
