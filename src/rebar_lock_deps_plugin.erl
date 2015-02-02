@@ -139,9 +139,13 @@ write_rebar_lock(OrigPath, NewPath, NewDeps) ->
     ok.
 
 lock_dep({Name, _Version, {Git, _Url}}, Sha, Url) ->
-        {Name, ".*", {Git, Url, Sha}};
+    {Name, ".*", {Git, Url, Sha}};
+lock_dep({Name, _Version, {Git, _Url}, Extra}, Sha, Url) ->
+    {Name, ".*", {Git, Url, Sha}, Extra};
 lock_dep({Name, Version, {Git, _Url, _Tag}}, Sha, Url) ->
-        lock_dep({Name, Version, {Git, _Url}}, Sha, Url).
+    lock_dep({Name, Version, {Git, _Url}}, Sha, Url);
+lock_dep({Name, Version, {Git, _Url, _Tag}, Extra}, Sha, Url) ->
+    lock_dep({Name, Version, {Git, _Url}, Extra}, Sha, Url).
 
 %% Find the git SHA1s of all the dependencies in `DepsDir' and return
 %% as a list of {Name, Sha} tuples where Name is an atom and Sha is a
@@ -186,8 +190,14 @@ read_all_deps(Config, Dir) ->
      {filename:basename(D), dep_names(extract_deps(D))}
      || D <- DepDirs ].
 
-dep_names(Deps) ->
-    [ erlang:atom_to_list(Name) || {Name, _, _} <- Deps ].
+dep_names([{Name, _Version, _GitSpec} | T]) ->
+    [erlang:atom_to_list(Name) | dep_names(T)];
+dep_names([{Name, _Version, _GitSpec, _Extra} | T]) ->
+    [erlang:atom_to_list(Name) | dep_names(T)];
+dep_names([_Skip | T]) ->
+    dep_names(T);
+dep_names([]) ->
+    [].
 
 de_dup(AccIn) ->
     WithIndex = lists:zip(AccIn, lists:seq(1, length(AccIn))),
