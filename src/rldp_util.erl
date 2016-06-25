@@ -14,5 +14,5 @@ cmd_in_dir(Cmd, Dir) ->
     end.
 
 mktemp_name(Prefix) ->
-    <<Int:32/big-unsigned-integer>> = crypto:rand_bytes(4),
+    <<Int:32/big-unsigned-integer>> = crypto:strong_rand_bytes(4),
     lists:flatten([Prefix, io_lib:format("~8.16.0b", [Int])]).
